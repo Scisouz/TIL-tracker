@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PostHog TIL — Today I Learned Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-canvas: #F8F7F4;
+      --bg-card: #FFFFFF;
+      --bg-muted: #EFECE6;
+      --border-subtle: #E2DFD7;
+      --border-strong: #1D1F27;
+      --text-primary: #1D1F27;
+      --text-secondary: #5A5D68;
+      --accent-orange: #F54E00;
+      --accent-amber: #F7A501;
+      --accent-blue: #1D4AFF;
+      --accent-green: #15803D;
+      --radius-md: 10px;
+      --radius-sm: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.5;
+      padding: 24px 16px 80px;
+    }
+
+    code, .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid var(--border-strong);
+      margin-bottom: 24px;
+    }
+
+    .brand h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand p {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .identity-box {
+      display: flex;
+      align-items: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 4px 8px;
+      gap: 6px;
+    }
+
+    .identity-box input {
+      border: none;
+      outline: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      width: 110px;
+      background: transparent;
+    }
+
+    /* Buttons */
+    button {
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      border: 1.5px solid var(--border-strong);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      transition: transform 0.1s ease, background-color 0.15s ease;
+    }
+
+    button:hover {
+      background: var(--bg-muted);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background: var(--accent-orange);
+      color: #FFFFFF;
+      border-color: var(--border-strong);
+    }
+
+    .btn-primary:hover {
+      background: #D94500;
+    }
+
+    .btn-secondary {
+      background: var(--bg-muted);
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 0.78rem;
+    }
+
+    /* Hedgehog Shortcut Button */
+    #hedgehog-runner {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      z-index: 999;
+      transition: left 0.22s ease-out, top 0.22s ease-out;
+    }
+
+    #hedgehog-runner.running {
+      position: fixed;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    #hedgehog-runner.tired button {
+      background: #FEF3C7;
+      border-style: dashed;
+    }
+
+    .hedgehog-sprite {
+      display: inline-flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .sleep-badge {
+      display: none;
+      position: absolute;
+      top: -10px;
+      right: -6px;
+      font-size: 0.75rem;
+    }
+
+    #hedgehog-runner.tired .sleep-badge {
+      display: inline;
+    }
+
+    /* Toast Banner */
+    #toast-banner {
+      display: none;
+      background: var(--border-strong);
+      color: #FFFFFF;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #toast-banner.visible {
+      display: flex;
+    }
+
+    /* Focus Mode Notice */
+    #focus-banner {
+      display: none;
+      background: #EEF2FF;
+      border: 1.5px solid var(--accent-blue);
+      color: #1E3A8A;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      margin-bottom: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    body.focus-mode-active #focus-banner {
+      display: block;
+    }
+
+    body.focus-mode-active #stats-bar,
+    body.focus-mode-active #feed-section {
+      display: none;
+    }
+
+    /* Cards & Form */
+    .card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 3px 3px 0px var(--border-strong);
+    }
+
+    .card h2 {
+      font-size: 1.05rem;
+      margin-bottom: 14px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--border-strong);
+      background: #FFFFFF;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 62px;
+    }
+
+    .form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+      align-items: center;
+    }
+
+    /* Stats Row */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .stat-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    /* Filter Pills */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      cursor: pointer;
+    }
+
+    .pill.active {
+      background: var(--border-strong);
+      color: #FFFFFF;
+      border-color: var(--border-strong);
+    }
+
+    /* Entry List */
+    .entry-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .entry-card {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .entry-card.pending {
+      border-left: 5px solid var(--accent-amber);
+    }
+
+    .entry-card.completed {
+      border-left: 5px solid var(--accent-green);
+    }
+
+    .entry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .entry-title {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--bg-muted);
+      border: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    .badge.status-pending {
+      background: #FEF3C7;
+      color: #92400E;
+      border-color: #F59E0B;
+    }
+
+    .badge.status-completed {
+      background: #DCFCE7;
+      color: #166534;
+      border-color: #22C55E;
+    }
+
+    .entry-note {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .entry-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .entry-meta a {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .entry-meta a:hover {
+      text-decoration: underline;
+    }
+
+    /* Inline Complete Drawer */
+    .complete-drawer {
+      display: none;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border-subtle);
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+
+    .complete-drawer.open {
+      display: flex;
+    }
+
+    @media (max-width: 600px) {
+      .form-grid, .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <h1>PostHog TIL <span class="badge">v1.0</span></h1>
+        <p>Lightweight learning log wired with PostHog product analytics</p>
+      </div>
+
+      <div class="header-actions">
+        <!-- User Identification -->
+        <div class="identity-box" title="Calls posthog.identify()">
+          <span class="mono" style="font-size: 0.75rem; color: var(--text-secondary);">user:</span>
+          <input type="text" id="learner-id-input" value="filipi" aria-label="Learner ID" />
+          <button type="button" class="btn-sm" id="identify-btn">Set</button>
+        </div>
+
+        <!-- Survey Trigger -->
+        <button type="button" id="share-feedback-btn">Share Feedback</button>
+
+        <!-- Hedgehog Shortcut Button -->
+        <div id="hedgehog-runner">
+          <button type="button" id="shortcut-btn">
+            <span class="hedgehog-sprite" aria-hidden="true">
+              <!-- Static Inline SVG Hedgehog -->
+              <svg width="24" height="18" viewBox="0 0 32 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 17C3 14 4 9 8 7L10 4L13 6L16 3L19 6L22 4L24 8C27 10 28 14 27 17H5Z" fill="#78350F" stroke="#1D1F27" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M21 17C21 12 24 10 28 12C30 13 31 15 31 17H21Z" fill="#FDE68A" stroke="#1D1F27" stroke-width="1.8" stroke-linejoin="round"/>
+                <circle cx="30.5" cy="15.5" r="1.4" fill="#1D1F27"/>
+                <circle cx="25.5" cy="14" r="1.1" fill="#1D1F27"/>
+                <line x1="10" y1="17" x2="10" y2="21" stroke="#1D1F27" stroke-width="2" stroke-linecap="round"/>
+                <line x1="22" y1="17" x2="22" y2="21" stroke="#1D1F27" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              <span class="sleep-badge">💤</span>
+            </span>
+            <span>Shortcut to Learning</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toast Notification -->
+    <div id="toast-banner" role="status">
+      <span id="toast-message"></span>
+      <button type="button" class="btn-sm" onclick="hideToast()">Dismiss</button>
+    </div>
+
+    <!-- Feature Flag Banner (focus-mode) -->
+    <div id="focus-banner">
+      <strong>Focus Mode Active</strong> (controlled via PostHog Feature Flag <code>focus-mode</code>) — History and stats are hidden so you can log without distractions.
+    </div>
+
+    <!-- Quick-Log / Queue Form -->
+    <section class="card" aria-label="Log a learning">
+      <h2>Capture a Learning</h2>
+      <form id="til-form">
+        <div class="form-grid">
+          <div class="full-width">
+            <label for="title-input">What did you learn (or want to study)? *</label>
+            <input type="text" id="title-input" maxlength="120" required placeholder="e.g., How posthog.identify() merges anonymous events with known users" />
+          </div>
+
+          <div>
+            <label for="topic-select">Topic *</label>
+            <select id="topic-select">
+              <option value="analytics">analytics</option>
+              <option value="replay">replay</option>
+              <option value="flags">flags</option>
+              <option value="experiments">experiments</option>
+              <option value="surveys">surveys</option>
+              <option value="llm">llm</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="source-select">Source *</label>
+            <select id="source-select">
+              <option value="docs">docs</option>
+              <option value="repo">repo</option>
+              <option value="hands_on">hands_on</option>
+              <option value="video">video</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="difficulty-select">Difficulty (1–5, for completed)</label>
+            <select id="difficulty-select">
+              <option value="1">1 — Easy</option>
+              <option value="2">2 — Smooth</option>
+              <option value="3" selected>3 — Moderate</option>
+              <option value="4">4 — Deep Dive</option>
+              <option value="5">5 — Brain Melter</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="mood-select">Mood</label>
+            <select id="mood-select">
+              <option value="curious">curious</option>
+              <option value="energized">energized</option>
+              <option value="tired">tired</option>
+            </select>
+          </div>
+
+          <div class="full-width">
+            <label for="url-input">Reference Link (optional)</label>
+            <input type="url" id="url-input" placeholder="https://posthog.com/docs/..." />
+          </div>
+
+          <div class="full-width">
+            <label for="note-input">Key Takeaway Note (optional)</label>
+            <textarea id="note-input" placeholder="Short summary of what clicked..."></textarea>
+          </div>
+
+          <div class="full-width">
+            <label for="private-input">Private Reflection (masked in Session Replay via <code>ph-no-capture</code>)</label>
+            <input type="text" id="private-input" class="ph-no-capture" placeholder="Never sent to PostHog events & masked in replays" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" data-action="log">Log Now ✓</button>
+          <button type="button" class="btn-secondary" id="save-queue-btn">Save to Queue (Pending)</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Summary Stats -->
+    <section id="stats-bar" class="stats-grid" aria-label="Learning statistics">
+      <div class="stat-box">
+        <div class="stat-value" id="stat-completed">0</div>
+        <div class="stat-label">Learnings Completed</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="stat-pending">0</div>
+        <div class="stat-label">In Study Queue</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value" id="stat-difficulty">0.0</div>
+        <div class="stat-label">Avg Difficulty (1–5)</div>
+      </div>
+    </section>
+
+    <!-- Feed & Topic Filters -->
+    <section id="feed-section" aria-label="Learning feed">
+      <div class="filter-bar" id="filter-bar">
+        <span class="mono" style="font-size: 0.78rem; color: var(--text-secondary);">Filter:</span>
+        <button type="button" class="pill active" data-topic="all">all</button>
+        <button type="button" class="pill" data-topic="analytics">analytics</button>
+        <button type="button" class="pill" data-topic="replay">replay</button>
+        <button type="button" class="pill" data-topic="flags">flags</button>
+        <button type="button" class="pill" data-topic="experiments">experiments</button>
+        <button type="button" class="pill" data-topic="surveys">surveys</button>
+        <button type="button" class="pill" data-topic="llm">llm</button>
+      </div>
+
+      <div class="entry-list" id="entry-list"></div>
+    </section>
+  </div>
+
+  <!-- PostHog Snippet + App Logic -->
+  <script>
+    // =========================================================================
+    // 1. POSTHOG CONFIGURATION (Replace with your Project API Key & Host)
+    // =========================================================================
+    const POSTHOG_PROJECT_KEY = 'YOUR_POSTHOG_PROJECT_API_KEY'; // e.g., 'phc_xxxxxxxxxxxx'
+    const POSTHOG_API_HOST = 'https://us.i.posthog.com';        // or 'https://eu.i.posthog.com'
+
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug getFeatureFlag isFeatureEnabled onFeatureFlags reloadFeatureFlags identify setPersonProperties reset".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+
+    if (POSTHOG_PROJECT_KEY !== 'YOUR_POSTHOG_PROJECT_API_KEY') {
+      posthog.init(POSTHOG_PROJECT_KEY, {
+        api_host: POSTHOG_API_HOST,
+        person_profiles: 'identified_only',
+        autocapture: true,
+        capture_pageview: true
+      });
+    }
+
+    function safeCapture(eventName, props = {}) {
+      if (window.posthog && typeof posthog.capture === 'function') {
+        posthog.capture(eventName, props);
+      }
+      console.log('[PostHog Event]', eventName, props);
+    }
+
+    // =========================================================================
+    // 2. DATA STORE & SEEDED STARTER ITEMS
+    // =========================================================================
+    const STORAGE_KEY = 'posthog_til_entries_v1';
+    let currentFilter = 'all';
+
+    const SEED_ENTRIES = [
+      {
+        id: 'seed-1',
+        title: 'How posthog.identify() links anonymous pre-login events to a known user',
+        note: 'Calling identify() merges the $device_id timeline with the distinct_id so funnels stay unbroken.',
+        reference_url: 'https://posthog.com/docs/product-analytics/identify',
+        topic: 'analytics',
+        source: 'docs',
+        status: 'completed',
+        difficulty: 2,
+        mood: 'curious',
+        from_queue: false,
+        created_at: new Date(Date.now() - 86400000 * 2).toISOString()
+      },
+      {
+        id: 'seed-2',
+        title: 'Masking sensitive DOM inputs in Session Replay with ph-no-capture',
+        note: 'Adding the ph-no-capture class masks text input values before they ever leave the browser.',
+        reference_url: 'https://posthog.com/docs/session-replay/privacy',
+        topic: 'replay',
+        source: 'hands_on',
+        status: 'completed',
+        difficulty: 2,
+        mood: 'energized',
+        from_queue: true,
+        created_at: new Date(Date.now() - 86400000).toISOString()
+      },
+      {
+        id: 'seed-3',
+        title: 'Waiting for onFeatureFlags() before evaluating multivariate flags',
+        note: 'Prevents race conditions on initial page load before the /decide endpoint responds.',
+        reference_url: 'https://posthog.com/docs/feature-flags/installation',
+        topic: 'flags',
+        source: 'docs',
+        status: 'completed',
+        difficulty: 3,
+        mood: 'curious',
+        from_queue: false,
+        created_at: new Date(Date.now() - 43200000).toISOString()
+      },
+      {
+        id: 'seed-4',
+        title: 'Explore HogQL expressions for custom breakdown insights',
+        note: '',
+        reference_url: 'https://posthog.com/docs/hogql',
+        topic: 'analytics',
+        source: 'docs',
+        status: 'pending',
+        difficulty: null,
+        mood: null,
+        from_queue: true,
+        created_at: new Date().toISOString()
+      },
+      {
+        id: 'seed-5',
+        title: 'Test LLM Observability trace spans and token latency metrics',
+        note: '',
+        reference_url: 'https://posthog.com/docs/ai-engineering/observability',
+        topic: 'llm',
+        source: 'repo',
+        status: 'pending',
+        difficulty: null,
+        mood: null,
+        from_queue: true,
+        created_at: new Date().toISOString()
+      }
+    ];
+
+    function loadEntries() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_ENTRIES));
+        return [...SEED_ENTRIES];
+      }
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return [...SEED_ENTRIES];
+      }
+    }
+
+    function saveEntries(entries) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }
+
+    let entries = loadEntries();
+
+    // =========================================================================
+    // 3. UI RENDERING & STATE TRANSITIONS
+    // =========================================================================
+    function showToast(msg) {
+      const banner = document.getElementById('toast-banner');
+      document.getElementById('toast-message').textContent = msg;
+      banner.classList.add('visible');
+    }
+
+    function hideToast() {
+      document.getElementById('toast-banner').classList.remove('visible');
+    }
+
+    function render() {
+      const completed = entries.filter(e => e.status === 'completed');
+      const pending = entries.filter(e => e.status === 'pending');
+
+      document.getElementById('stat-completed').textContent = completed.length;
+      document.getElementById('stat-pending').textContent = pending.length;
+
+      const avgDiff = completed.length
+        ? (completed.reduce((sum, e) => sum + (Number(e.difficulty) || 0), 0) / completed.length).toFixed(1)
+        : '0.0';
+      document.getElementById('stat-difficulty').textContent = avgDiff;
+
+      const filtered = currentFilter === 'all'
+        ? entries
+        : entries.filter(e => e.topic === currentFilter);
+
+      const listEl = document.getElementById('entry-list');
+      listEl.innerHTML = '';
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.9rem;">No entries for this topic yet.</p>';
+        return;
+      }
+
+      filtered.forEach(entry => {
+        const card = document.createElement('article');
+        card.className = `entry-card ${entry.status}`;
+
+        const isPending = entry.status === 'pending';
+        const statusBadge = isPending
+          ? '<span class="badge status-pending">Pending</span>'
+          : '<span class="badge status-completed">Logged ✓</span>';
+
+        const linkHtml = entry.reference_url
+          ? `<a href="${escapeHtml(entry.reference_url)}" target="_blank" rel="noopener noreferrer">↗ Reference</a>`
+          : '';
+
+        const completedMeta = !isPending
+          ? `<span class="badge">difficulty: ${entry.difficulty}/5</span>
+             <span class="badge">mood: ${escapeHtml(entry.mood)}</span>`
+          : `<button type="button" class="btn-sm btn-primary" onclick="toggleCompleteDrawer('${entry.id}')">Mark Learned ✓</button>`;
+
+        card.innerHTML = `
+          <div class="entry-header">
+            <div class="entry-title">${escapeHtml(entry.title)}</div>
+            ${statusBadge}
+          </div>
+          ${entry.note ? `<div class="entry-note">${escapeHtml(entry.note)}</div>` : ''}
+          <div class="entry-meta">
+            <span class="badge">#${escapeHtml(entry.topic)}</span>
+            <span class="badge">source: ${escapeHtml(entry.source)}</span>
+            ${linkHtml}
+            ${completedMeta}
+          </div>
+          ${isPending ? `
+            <div class="complete-drawer" id="drawer-${entry.id}">
+              <div>
+                <label>Difficulty (1–5)</label>
+                <select id="diff-${entry.id}">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3" selected>3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+              <div>
+                <label>Mood</label>
+                <select id="mood-${entry.id}">
+                  <option value="curious">curious</option>
+                  <option value="energized">energized</option>
+                  <option value="tired">tired</option>
+                </select>
+              </div>
+              <div style="flex: 1; min-width: 180px;">
+                <label>Takeaway Note</label>
+                <input type="text" id="note-${entry.id}" placeholder="Quick takeaway..." />
+              </div>
+              <button type="button" class="btn-sm btn-primary" onclick="completeQueuedEntry('${entry.id}')">Confirm</button>
+            </div>
+          ` : ''}
+        `;
+        listEl.appendChild(card);
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&')
+        .replace(/</g, '<')
+        .replace(/>/g, '>')
+        .replace(/"/g, '"');
+    }
+
+    window.toggleCompleteDrawer = function(id) {
+      const drawer = document.getElementById(`drawer-${id}`);
+      if (drawer) drawer.classList.toggle('open');
+    };
+
+    window.completeQueuedEntry = function(id) {
+      const idx = entries.findIndex(e => e.id === id);
+      if (idx === -1) return;
+
+      const difficulty = Number(document.getElementById(`diff-${id}`).value);
+      const mood = document.getElementById(`mood-${id}`).value;
+      const note = document.getElementById(`note-${id}`).value.trim();
+
+      entries[idx] = {
+        ...entries[idx],
+        status: 'completed',
+        difficulty,
+        mood,
+        note: note || entries[idx].note,
+        from_queue: true
+      };
+
+      saveEntries(entries);
+      render();
+
+      safeCapture('learning_logged', {
+        topic: entries[idx].topic,
+        source: entries[idx].source,
+        difficulty,
+        mood,
+        from_queue: true,
+        has_note: Boolean(entries[idx].note),
+        has_link: Boolean(entries[idx].reference_url)
+      });
+
+      showToast(`Completed "${entries[idx].title}" and sent learning_logged to PostHog!`);
+    };
+
+    // =========================================================================
+    // 4. FORM SUBMISSION (LOG NOW vs. SAVE TO QUEUE)
+    // =========================================================================
+    function handleCreateEntry(mode) {
+      const titleEl = document.getElementById('title-input');
+      const title = titleEl.value.trim();
+      if (!title) {
+        titleEl.focus();
+        return;
+      }
+
+      const topic = document.getElementById('topic-select').value;
+      const source = document.getElementById('source-select').value;
+      const difficulty = Number(document.getElementById('difficulty-select').value);
+      const mood = document.getElementById('mood-select').value;
+      const reference_url = document.getElementById('url-input').value.trim();
+      const note = document.getElementById('note-input').value.trim();
+
+      const isCompleted = mode === 'log';
+
+      const newEntry = {
+        id: 'til-' + Date.now(),
+        title,
+        note,
+        reference_url,
+        topic,
+        source,
+        status: isCompleted ? 'completed' : 'pending',
+        difficulty: isCompleted ? difficulty : null,
+        mood: isCompleted ? mood : null,
+        from_queue: false,
+        created_at: new Date().toISOString()
+      };
+
+      entries.unshift(newEntry);
+      saveEntries(entries);
+      render();
+
+      if (isCompleted) {
+        safeCapture('learning_logged', {
+          topic,
+          source,
+          difficulty,
+          mood,
+          from_queue: false,
+          has_note: Boolean(note),
+          has_link: Boolean(reference_url)
+        });
+        showToast('Learning logged and captured in PostHog!');
+      } else {
+        safeCapture('learning_created', {
+          topic,
+          source,
+          is_seeded: false,
+          has_link: Boolean(reference_url)
+        });
+        showToast('Saved to your study queue (learning_created fired).');
+      }
+
+      document.getElementById('til-form').reset();
+    }
+
+    document.getElementById('til-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      handleCreateEntry('log');
+    });
+
+    document.getElementById('save-queue-btn').addEventListener('click', () => {
+      handleCreateEntry('queue');
+    });
+
+    // =========================================================================
+    // 5. FILTERS, IDENTIFY & FEEDBACK SURVEY TRIGGER
+    // =========================================================================
+    document.getElementById('filter-bar').addEventListener('click', (e) => {
+      if (!e.target.classList.contains('pill')) return;
+      document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      e.target.classList.add('active');
+      currentFilter = e.target.dataset.topic;
+      render();
+      safeCapture('filter_applied', { selected_topic: currentFilter });
+    });
+
+    document.getElementById('identify-btn').addEventListener('click', () => {
+      const userId = document.getElementById('learner-id-input').value.trim();
+      if (!userId) return;
+      if (window.posthog && typeof posthog.identify === 'function') {
+        posthog.identify(userId, { role: 'tse_candidate' });
+      }
+      showToast(`Identified user as "${userId}" in PostHog.`);
+    });
+
+    document.getElementById('share-feedback-btn').addEventListener('click', () => {
+      safeCapture('feedback_opened', { source: 'header_button' });
+      showToast('Fired feedback_opened — connect a PostHog Survey to #share-feedback-btn to display a popup!');
+    });
+
+    // =========================================================================
+    // 6. HEDGEHOG "SHORTCUT TO LEARNING" CHASE MECHANIC (10s STAMINA)
+    // =========================================================================
+    const runner = document.getElementById('hedgehog-runner');
+    const shortcutBtn = document.getElementById('shortcut-btn');
+    let chaseStartedAt = null;
+    let isTired = false;
+    let staminaTimer = null;
+
+    function dodgeCursor() {
+      if (isTired) return;
+
+      if (!chaseStartedAt) {
+        chaseStartedAt = Date.now();
+        runner.classList.add('running');
+        safeCapture('shortcut_button_chased', { stamina_sec: 10 });
+
+        staminaTimer = setTimeout(() => {
+          isTired = true;
+          runner.classList.add('tired');
+        }, 10000);
+      }
+
+      const padding = 24;
+      const maxX = Math.max(padding, window.innerWidth - runner.offsetWidth - padding);
+      const maxY = Math.max(padding, window.innerHeight - runner.offsetHeight - padding);
+
+      const nextX = Math.floor(Math.random() * maxX);
+      const nextY = Math.floor(Math.random() * maxY);
+
+      runner.style.left = `${nextX}px`;
+      runner.style.top = `${nextY}px`;
+    }
+
+    runner.addEventListener('mouseenter', dodgeCursor);
+
+    shortcutBtn.addEventListener('click', () => {
+      if (!isTired) {
+        dodgeCursor();
+        return;
+      }
+      const elapsedSec = chaseStartedAt ? Math.round((Date.now() - chaseStartedAt) / 1000) : 10;
+      safeCapture('shortcut_button_caught', { time_to_catch_sec: elapsedSec });
+      showToast("🦔 You could've learned something else by now.");
+    });
+
+    // =========================================================================
+    // 7. FEATURE FLAG EVALUATION & INITIAL PAGE EVENT
+    // =========================================================================
+    function applyFocusMode(enabled) {
+      document.body.classList.toggle('focus-mode-active', Boolean(enabled));
+    }
+
+    if (window.posthog && typeof posthog.onFeatureFlags === 'function') {
+      posthog.onFeatureFlags(() => {
+        const focusEnabled = posthog.isFeatureEnabled('focus-mode');
+        applyFocusMode(focusEnabled);
+        safeCapture('app_opened', {
+          theme_mode: focusEnabled ? 'focus' : 'standard'
+        });
+      });
+    } else {
+      safeCapture('app_opened', { theme_mode: 'standard' });
+    }
+
+    render();
+  </script>
+</body>
+</html>
