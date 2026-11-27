@@ -552,10 +552,11 @@
 
       <div class="header-actions">
         <!-- User Identification -->
-        <div class="identity-box" title="Calls posthog.identify()">
+        <div class="identity-box" title="Calls posthog.identify() / posthog.reset()">
           <span class="mono" style="font-size: 0.75rem; font-weight: 700;">user:</span>
-          <input type="text" id="learner-id-input" placeholder="user id" aria-label="Learner ID" />
+          <input type="text" id="learner-id-input" placeholder="anonymous" aria-label="Learner ID" />
           <button type="button" class="btn-sm" id="identify-btn">Set</button>
+          <button type="button" class="btn-sm" id="reset-identity-btn" title="Calls posthog.reset() to switch back to anonymous">Reset</button>
         </div>
 
         <!-- Survey Trigger -->
@@ -726,7 +727,12 @@
     // 2. DATA STORE (STARTS EMPTY — NO HARDCODED ENTRIES)
     // =========================================================================
     const STORAGE_KEY = 'posthog_til_entries_v2';
+    const IDENTIFIED_USER_KEY = 'posthog_til_identified_user';
     let currentFilter = 'all';
+
+    function getActiveLearnerId() {
+      return localStorage.getItem(IDENTIFIED_USER_KEY) || 'anonymous';
+    }
 
     function loadEntries() {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -847,6 +853,7 @@
           <div class="entry-meta">
             <span class="badge topic-badge">#${escapeHtml(normalizeTopic(entry.topic))}</span>
             <span class="badge">source: ${escapeHtml(entry.source)}</span>
+            <span class="badge">by: ${escapeHtml(entry.user || 'anonymous')}</span>
             ${linkHtml}
             ${completedMeta}
           </div>
@@ -963,6 +970,7 @@
         reference_url,
         topic,
         source,
+        user: getActiveLearnerId(),
         status: isCompleted ? 'completed' : 'pending',
         difficulty: isCompleted ? difficulty : null,
         mood: isCompleted ? mood : null,
@@ -1016,8 +1024,6 @@
       safeCapture('filter_applied', { selected_topic: currentFilter });
     });
 
-    const IDENTIFIED_USER_KEY = 'posthog_til_identified_user';
-
     function identifyLearner() {
       const inputEl = document.getElementById('learner-id-input');
       const userId = inputEl.value.trim();
@@ -1047,7 +1053,22 @@
       showToast(`Identified user as "${userId}" in PostHog.`);
     }
 
+    function resetIdentity() {
+      if (window.posthog && typeof posthog.reset === 'function') {
+        posthog.reset();
+      }
+      localStorage.removeItem(IDENTIFIED_USER_KEY);
+      document.getElementById('learner-id-input').value = '';
+      showToast('Reset PostHog identity — now anonymous.');
+    }
+
+    const savedUserId = localStorage.getItem(IDENTIFIED_USER_KEY);
+    if (savedUserId) {
+      document.getElementById('learner-id-input').value = savedUserId;
+    }
+
     document.getElementById('identify-btn').addEventListener('click', identifyLearner);
+    document.getElementById('reset-identity-btn').addEventListener('click', resetIdentity);
     document.getElementById('learner-id-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -1055,8 +1076,17 @@
       }
     });
 
+    const FEEDBACK_SURVEY_ID = '01a21a89-4940-0000-aac9-20c5ab5b3878';
+
     document.getElementById('share-feedback-btn').addEventListener('click', () => {
       safeCapture('feedback_opened', { source: 'header_button' });
+      if (window.posthog && typeof posthog.displaySurvey === 'function') {
+        posthog.displaySurvey(FEEDBACK_SURVEY_ID, {
+          displayType: 'popover',
+          ignoreConditions: true,
+          ignoreDelay: true
+        });
+      }
     });
 
     // =========================================================================
