@@ -9,7 +9,7 @@ A lightweight, single-file learning tracker (`v1.1`) built to explore and demons
   - `learning_created` (saving a topic to the study queue)
   - `learning_logged` (completing a queued item or logging directly with integer `difficulty` `1–5`, `mood`, `topic`, `source`, `from_queue`, `has_note`, and `has_link`)
   - `filter_applied`, `feedback_opened`, `shortcut_button_chased`, `shortcut_button_caught`
-- **User Identification & Switching:** Starts anonymous; entering a user ID and clicking **Set** (or pressing `Enter`) calls `posthog.identify()` with custom person properties (`role: 'tse_candidate'`, `name`). Switching to a different user ID automatically calls `posthog.reset()` first so PostHog tracks each user as a distinct person.
+- **User Identification & Switching:** Starts anonymous; entering a user ID and clicking **Set** (or pressing `Enter`) calls `posthog.identify()` with person property `name`. Switching to a different user ID automatically calls `posthog.reset()` first so PostHog tracks each user as a distinct person.
 - **Session Replay & Privacy Masking:** Uses the `ph-no-capture` class on the private reflection input (`#private-input`) so sensitive text is never sent in events and is masked in recordings before leaving the client.
 - **Feature Flags:** Listens asynchronously via `posthog.onFeatureFlags()` for the `focus-mode` flag to toggle a distraction-free logging layout (hiding stats and the feed).
 - **Surveys & Autocapture:** `#share-feedback-btn` captures `feedback_opened` (ready for a PostHog Popover Survey triggered on the `feedback_opened` event, or a Feedback Button survey targeting `#share-feedback-btn`), while the 10-dodge hedgehog chase naturally exercises PostHog's autocapture and rage-click detection.

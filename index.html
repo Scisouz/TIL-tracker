@@ -1046,7 +1046,7 @@
           }
         }
 
-        posthog.identify(userId, { role: 'tse_candidate', name: userId });
+        posthog.identify(userId, { name: userId });
       }
 
       localStorage.setItem(IDENTIFIED_USER_KEY, userId);
