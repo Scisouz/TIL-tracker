@@ -554,7 +554,7 @@
         <!-- User Identification -->
         <div class="identity-box" title="Calls posthog.identify()">
           <span class="mono" style="font-size: 0.75rem; font-weight: 700;">user:</span>
-          <input type="text" id="learner-id-input" value="filipi" aria-label="Learner ID" />
+          <input type="text" id="learner-id-input" placeholder="user id" aria-label="Learner ID" />
           <button type="button" class="btn-sm" id="identify-btn">Set</button>
         </div>
 
@@ -1016,18 +1016,47 @@
       safeCapture('filter_applied', { selected_topic: currentFilter });
     });
 
-    document.getElementById('identify-btn').addEventListener('click', () => {
-      const userId = document.getElementById('learner-id-input').value.trim();
-      if (!userId) return;
-      if (window.posthog && typeof posthog.identify === 'function') {
-        posthog.identify(userId, { role: 'tse_candidate' });
+    const IDENTIFIED_USER_KEY = 'posthog_til_identified_user';
+
+    function identifyLearner() {
+      const inputEl = document.getElementById('learner-id-input');
+      const userId = inputEl.value.trim();
+      if (!userId) {
+        inputEl.focus();
+        return;
       }
+
+      if (window.posthog && typeof posthog.identify === 'function') {
+        const previousUser = localStorage.getItem(IDENTIFIED_USER_KEY);
+        const currentDistinctId = typeof posthog.get_distinct_id === 'function'
+          ? posthog.get_distinct_id()
+          : null;
+        const alreadyIdentified = (typeof posthog._isIdentified === 'function' && posthog._isIdentified())
+          || Boolean(previousUser);
+
+        if (alreadyIdentified && (previousUser ? previousUser !== userId : currentDistinctId !== userId)) {
+          if (typeof posthog.reset === 'function') {
+            posthog.reset();
+          }
+        }
+
+        posthog.identify(userId, { role: 'tse_candidate', name: userId });
+      }
+
+      localStorage.setItem(IDENTIFIED_USER_KEY, userId);
       showToast(`Identified user as "${userId}" in PostHog.`);
+    }
+
+    document.getElementById('identify-btn').addEventListener('click', identifyLearner);
+    document.getElementById('learner-id-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        identifyLearner();
+      }
     });
 
     document.getElementById('share-feedback-btn').addEventListener('click', () => {
       safeCapture('feedback_opened', { source: 'header_button' });
-      showToast('Fired feedback_opened — connect a PostHog Survey to #share-feedback-btn to display a popup!');
     });
 
     // =========================================================================
